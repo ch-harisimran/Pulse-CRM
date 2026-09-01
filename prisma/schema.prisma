@@ -1,0 +1,194 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  member
+}
+
+enum CustomerStatus {
+  lead
+  active
+  churned
+}
+
+enum DealStage {
+  open
+  won
+  lost
+}
+
+enum ActivityType {
+  deal_created
+  deal_won
+  deal_lost
+  customer_added
+  report_generated
+  member_invited
+  member_joined
+  settings_changed
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  users           User[]
+  customers       Customer[]
+  deals           Deal[]
+  activities      Activity[]
+  reports         Report[]
+  auditLogs       AuditLog[]
+  integrations    Integration[]
+  scheduledReport ScheduledReportSetting?
+
+  @@map("tenants")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String   @map("tenant_id")
+  email        String   @unique
+  name         String
+  passwordHash String   @map("password_hash")
+  role         Role     @default(member)
+  avatarColor  String   @default("#10B981") @map("avatar_color")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  activities       Activity[]
+  reports          Report[]
+  auditLogs        AuditLog[]
+  dashboardLayouts DashboardLayout[]
+
+  @@index([tenantId])
+  @@map("users")
+}
+
+model Customer {
+  id        String         @id @default(cuid())
+  tenantId  String         @map("tenant_id")
+  name      String
+  email     String
+  company   String
+  status    CustomerStatus @default(lead)
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deals  Deal[]
+
+  @@index([tenantId])
+  @@map("customers")
+}
+
+model Deal {
+  id         String    @id @default(cuid())
+  tenantId   String    @map("tenant_id")
+  customerId String    @map("customer_id")
+  title      String
+  value      Int
+  stage      DealStage @default(open)
+  closeDate  DateTime  @map("close_date")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@map("deals")
+}
+
+model Activity {
+  id          String       @id @default(cuid())
+  tenantId    String       @map("tenant_id")
+  userId      String?      @map("user_id")
+  type        ActivityType
+  description String
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@map("activities")
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  tenantId    String   @map("tenant_id")
+  generatedBy String?  @map("generated_by")
+  title       String
+  content     String   @db.Text
+  periodStart DateTime @map("period_start")
+  periodEnd   DateTime @map("period_end")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  author User?  @relation(fields: [generatedBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@map("reports")
+}
+
+model DashboardLayout {
+  id           String   @id @default(cuid())
+  userId       String   @unique @map("user_id")
+  widgetConfig Json     @map("widget_config")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("dashboard_layout")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String   @map("tenant_id")
+  userId     String?  @map("user_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@map("audit_logs")
+}
+
+model Integration {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  key       String
+  enabled   Boolean  @default(false)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@map("integrations")
+}
+
+model ScheduledReportSetting {
+  id        String   @id @default(cuid())
+  tenantId  String   @unique @map("tenant_id")
+  enabled   Boolean  @default(false)
+  lastRunAt DateTime? @map("last_run_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("scheduled_report_settings")
+}
