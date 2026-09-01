@@ -26,7 +26,6 @@ A lightweight, multi-tenant CRM and sales-tracking dashboard — customers, deal
 - [Architecture](#-architecture)
 - [Security model](#-security-model)
 - [Getting started](#-getting-started)
-- [Known limitations](#-known-limitations)
 
 ---
 
@@ -218,16 +217,4 @@ All seeded users share the password `password123`:
 | `npm run db:push` | Push the Prisma schema to your database (no migration history) |
 | `npm run db:generate` | Regenerate the Prisma client after schema changes |
 
----
 
-## ⚠️ Known limitations
-
-Stated plainly rather than hidden:
-
-- **Tenant isolation is application-level, not native Postgres RLS.** Every query filters by `tenant_id` in Prisma, and it's applied consistently across every route — but a bug in a future route would be a code review problem, not something the database itself would block. A production version of this product would add real Postgres RLS as defense-in-depth.
-- **No real email is ever sent.** Team invites and the weekly AI summary are logged to the server console and the activity feed instead — there's no email provider configured, by design, since this is a local-only build.
-- **The "weekly summary" isn't actually scheduled.** There's no cron job or background worker. Turning the toggle on simulates one run immediately (a backdated report) rather than running on a real recurring schedule.
-- **Auth is intentionally minimal.** A hand-rolled JWT cookie was chosen over a hardened provider (Supabase Auth, NextAuth) to keep the project dependency-free and fully local — there's no password reset flow, no email verification, and no OAuth.
-- **No automated test suite.** The financial and aggregation logic (dashboard stats, report data gathering) is manually verified, not covered by unit tests.
-- **Single demo tenant.** The seed script creates one fictional agency (Brightpath Studio); signing up creates additional real tenants, but there's no multi-tenant demo data pre-loaded beyond the one seed.
-- **Mock integrations stay mock.** The Slack / Zapier / Google Sheets cards toggle real database state, but nothing is actually posted anywhere — there's no OAuth flow or webhook behind them.
